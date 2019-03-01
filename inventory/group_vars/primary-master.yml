@@ -1,0 +1,7 @@
+cpu: 4
+mem: 8
+commands:
+   - ifconfig | sed -n 's/.*inet \([0-9.]\+\)\s.*/\1/p' |grep -v 127.0.0.1 | grep -v 172.17.0 > /etc/issue
+   - kubeadm init --config /etc/kubernetes/kubeadm.conf
+templates:
+  /etc/kubernetes/kubeadm.conf: "master.conf.tpl"

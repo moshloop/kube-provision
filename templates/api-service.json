@@ -1,0 +1,19 @@
+{
+  "service": {
+    "id": "{{inventory_hostname}}",
+    "name": "{{cluster_name}}",
+    "address": "",
+    "meta": {
+      "meta": "for my service"
+    },
+    "check": {
+    "id": "api-server",
+    "name": " TCP on port 6443",
+    "tcp": "localhost:6443",
+    "interval": "120s",
+    "timeout": "60s"
+    },
+    "port": 6443,
+    "enable_tag_override": false
+  }
+}
