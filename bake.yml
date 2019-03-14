@@ -1,0 +1,124 @@
+---
+- hosts: all
+  become: true
+  vars:
+    docker_version: docker-ce=18.06.0~ce~3-0~ubuntu
+    k8s_version: 1.13.2-00
+    k8s_short_version: v1.13.2
+  tasks:
+    - include_vars:
+       file: "{{playbook_dir}}/vars.yml"
+
+    - name: Update sudoers
+      lineinfile:
+       path: /etc/sudoers
+       state: present
+       regexp: '^%sudo\s'
+       line: '%sudo ALL=(ALL) NOPASSWD: ALL'
+
+    - name: Install apt-transport-https
+      apt:
+        name:
+          - apt-transport-https
+          - curl
+          - ca-certificates
+          - software-properties-common
+          - wget
+          - cloud-init
+        state: present
+        update_cache: yes
+
+    - name: Add GPG keys
+      apt_key:
+        url: "{{item}}"
+        validate_certs: no
+      with_items:
+        - https://download.docker.com/linux/ubuntu/gpg
+        - https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu {{ansible_lsb.codename}} stable
+        state: present
+        filename: 'docker'
+
+    - name: Add k8s APT repository
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+        filename: 'kubernetes'
+
+
+    - name: Upgrade systools
+      shell: dpkg -r systools
+    - shell: wget --no-check-certificate https://github.com/moshloop/systools/releases/download/3.9/systools.deb
+    - shell: dpkg -i systools.deb
+
+    # - name: Install etcadm
+    #   shell: install_bin {{base_dist}}/etcdadm
+
+    - name: Install docker & kubeadm
+      apt:
+        name:
+          - kubelet={{k8s_version}}
+          - kubeadm={{k8s_version}}
+          - kubectl={{k8s_version}}
+          - "{{docker_version}}"
+        state: present
+        update_cache: yes
+
+    - name: Hold package versions
+      dpkg_selections:
+        name: "{{item}}"
+        selection: hold
+      with_items:
+        - kubelet
+        - kubeadm
+        - kubectl
+        - docker-ce
+
+    - name: Disable swappiness and pass bridged IPv4 traffic to iptable's chains
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+      with_items:
+        - { name: 'vm.swappiness', value: '0' }
+        - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { name: 'net.ipv6.conf.all.disable_ipv6', value: '1'}
+        - { name: 'net.ipv6.conf.default.disable_ipv6', value: '1'}
+
+    - name: Pull extra images
+      shell: docker pull {{item}}
+      with_items: "{{images}}"
+
+    - name: Pull k8s images
+      shell: docker pull {{item}}
+      with_items:
+        - k8s.gcr.io/kube-apiserver:{{k8s_short_version}}
+        - k8s.gcr.io/kube-controller-manager:{{k8s_short_version}}
+        - k8s.gcr.io/kube-proxy:{{k8s_short_version}}
+        - k8s.gcr.io/kube-scheduler:{{k8s_short_version}}
+
+    - name: Disable swap
+      shell: swapoff -a
+
+    - name: Delete swap volume
+      shell: lvremove -y /dev/mapper/tpl--ubuntu--vg-swap_1
+      failed_when: false
+
+    - name: Remove swapfile from /etc/fstab
+      shell: sed -i 's|.*swap.*||' /etc/fstab
+      failed_when: false
+
+    - name: Update packages
+      shell: apt-get -y upgrade
+
+    - name: Cleanup apt
+      shell:  rm -Rf /var/lib/apt/lists/* &&  apt-get clean
+
+    - name: Cleanup journal
+      shell: rm -rf /var/log/journal
+
+    - name: Cleanup dirs
+      shell: rm -rf /usr/share/doc; rm -rf /usr/share/man
