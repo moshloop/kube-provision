@@ -1,6 +1,10 @@
 cpu: 4
 mem: 8
 commands:
+   - rm /etc/machine-id
+   - systemd-machine-id-setup
+   - netplan apply
+   - sleep 5
    - ifconfig | sed -n 's/.*inet \([0-9.]\+\)\s.*/\1/p' |grep -v 127.0.0.1 | grep -v 172.17.0 > /etc/issue
    - kubeadm init --config /etc/kubernetes/kubeadm.conf
 templates:
