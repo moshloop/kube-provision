@@ -7,7 +7,7 @@ setup(
     name = 'kube-provision',
     version = '0.1',
     scripts = ['kube-provision'],
-    install_requires = ['ansible-deploy', 'ansible-provision', 'ansible-kubectl'],
+    install_requires = ['ansible-deploy', 'ansible-provision', 'kubectl-ansible'],
     url = 'https://www/github.com/moshloop/kube-provision',
     author = 'Moshe Immerman', author_email = 'moshe.immerman@gmail.com'
 )
