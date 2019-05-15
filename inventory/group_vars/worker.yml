@@ -1,9 +1,4 @@
 cpu: 16
 mem: 64
 commands:
-  - rm /etc/machine-id
-  - systemd-machine-id-setup
-  - netplan apply
-  - sleep 5
-  - ifconfig | sed -n 's/.*inet \([0-9.]\+\)\s.*/\1/p' |grep -v 127.0.0.1 | grep -v 172.17.0 > /etc/issue
-  - kubeadm join localhost:8443 --token {{token}} --discovery-token-unsafe-skip-ca-verification
+ - kubeadm join localhost:8443 --token {{token}} --discovery-token-unsafe-skip-ca-verification

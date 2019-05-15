@@ -1,6 +1,6 @@
 {
   "service": {
-    "id": "{{inventory_hostname}}",
+    "id": "{{node_name | default(inventory_hostname)}}",
     "name": "{{cluster_name}}",
     "address": "",
     "meta": {

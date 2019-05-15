@@ -8,7 +8,4 @@
   - template:
       dest: "{{cluster_name}}/api.json"
       src: "api-service.json"
-  - template:
-      dest: "{{cluster_name}}/worker.conf"
-      src: "worker.conf.tpl"
   when: "'consul' not in group_names"

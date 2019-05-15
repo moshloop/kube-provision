@@ -6,8 +6,4 @@ containers:
       CONSUL_CLIENT_INTERFACE: "{{consul_bind_interface}}"
       CONSUL_BIND_INTERFACE: "{{consul_bind_interface}}"
 commands:
-  - rm /etc/machine-id
-  - systemd-machine-id-setup
-  - netplan apply
-  - sleep 5
   - iptables -A PREROUTING -t nat -p tcp --dport 80 -j REDIRECT --to-ports 8500

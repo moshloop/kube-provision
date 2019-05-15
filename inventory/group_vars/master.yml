@@ -3,6 +3,7 @@ env_vars:
   ETCDCTL_CACERT: /etc/kubernetes/pki/etcd/ca.crt
   ETCDCTL_CERT: /etc/kubernetes/pki/etcd/healthcheck-client.crt
   ETCDCTL_KEY: /etc/kubernetes/pki/etcd/healthcheck-client.key
+  KUBECONFIG: /etc/kubernetes/admin.conf
 
 files:
   /etc/kubernetes/consul/api.json: "{{cluster_name}}/api.json"
