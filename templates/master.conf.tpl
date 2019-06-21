@@ -15,7 +15,12 @@ networking:
   serviceSubnet: "{{service_subnet | default('10.96.0.1/24')}}"
 imageRepository: "{{docker_proxy}}k8s.gcr.io"
 clusterName: {{cluster_name}}
-
+controllerManager:
+  extraArgs:
+    address: 0.0.0.0
+scheduler:
+  extraArgs:
+    address: 0.0.0.0
 ---
 apiVersion: kubeadm.k8s.io/v1beta1
 kind: InitConfiguration
