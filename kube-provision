@@ -2,7 +2,8 @@
 # ARG_OPTIONAL_SINGLE([cluster-name],[n],[cluster name, must be unique])
 # ARG_OPTIONAL_BOOLEAN([bootstrap-master],[],[Whether to create a new primary master],[on])
 # ARG_OPTIONAL_SINGLE([workers],[w],[number of worker nodes],[3])
-# ARG_OPTIONAL_SINGLE([masters],[m],[number of secondary worker modes],[3])
+# ARG_OPTIONAL_SINGLE([masters],[m],[number of secondary worker modes],[1])
+# ARG_OPTIONAL_SINGLE([secondary],[s],[number of secondary worker modes],[2])
 # ARG_OPTIONAL_SINGLE([config],[c],[Config file with options],[])
 # ARG_OPTIONAL_SINGLE([host-prefix],[p],[prefix to add to every hostname],[])
 # ARG_OPTIONAL_SINGLE([master-label],[],[Label to add to all masters],[m-])
@@ -32,7 +33,7 @@ done
 
 logv "Verbose log"
 
-k8s_version=${k8s_version:-v1.13.2}
+k8s_version=${k8s_version:-v1.13.6}
 
 LOCAL_IP=$(ifconfig | sed -n 's/.*inet addr:\([0-9.]\+\)\s.*/\1/p' |grep -v 127.0.0.1)
 
@@ -40,9 +41,10 @@ LOCAL_IP=$(ifconfig | sed -n 's/.*inet addr:\([0-9.]\+\)\s.*/\1/p' |grep -v 127.
 [[ "$config" != "" ]] && ARGS+=" --config $config"
 [[ "$debug" != "" ]] && ARGS+=" --debug"
 
-[[ "$consul_ip" == "" ]] && consul_ip=$($provisioner --hostname consul-server --group consul --print-ip $ARGS)
+[[ "$consul_ip" == "" ]] && consul_ip=$($provisioner --hostname ${host_prefix}consul-server --group consul --print-ip $ARGS)
 
 [[ "$consul_ip" == "" ]] && die "Failed to provision consul"
+[[ -e ~/.kube-provision ]] || git clone https://github.com/moshloop/kube-provision.git $HOME/.kube-provision
 
 ARGS+=" -e consul_ip=$consul_ip -e consul_server_http=$consul_ip:8500"
 
@@ -62,7 +64,20 @@ fi
 
 ARGS+=" -e token=$token -e cluster_name=$cluster_name -e kubernetes_version=${k8s_version}"
 
-if [[ "$masters" -gt 0 ]]; then
+ARGS+=" -i $HOME/.kube-provision/inventory -e hooks=$HOME/.kube-provision"
+
+# ansible doesn't look up templates relative to the playbook, but relative to the calling directory
+# so we create a temporary copy
+for template in $(ls $HOME/.kube-provision/templates ); do
+	src=$HOME/.kube-provision/templates/$template
+	target=templates/$template
+	ln -s $src $target
+	delete_on_exit $target
+done
+
+[[ -e inventory ]] && ARGS+=" -i $PWD/inventory"
+
+if [[ "$masters" -gt 0  ]]; then
   master_ip=$($provisioner --host-prefix ${host_prefix}${master_label}${cluster_name} \
              --group primary-master \
              --print-ip $ARGS)
@@ -76,17 +91,20 @@ export KUBECONFIG=$PWD/$cluster_name/admin.conf
 
 if [[ ! -e $KUBECONFIG ]]; then
   kubeadm init phase kubeconfig admin --cert-dir $PWD/$cluster_name/certs --apiserver-advertise-address $master_ip  --kubeconfig-dir $PWD/$cluster_name
+	sed "s|kubernetes|$name|" -i $KUBECONFIG
+	sed "s|@kubernetes||" -i $KUBECONFIG
 fi
 
 # [[ -e deploy.sh ]] && ./deploy.sh
-secondary_masters=$(expr $masters - 1)
+secondary_masters=$secondary
 
-log "Provisioning $secondary_masters secondary masters "
 if [[  "$secondary_masters" -gt 0 ]]; then
+	log "Provisioning $secondary_masters secondary masters "
   for i in $(seq 1 $secondary_masters); do
     $provisioner --group secondary-master \
+								 -e wait_for_ip=false \
                  --host-prefix ${host_prefix}${secondary_label}${cluster_name} \
-                 $ARGS
+                $ARGS
   done
 fi
 log "Provisioning $workers workers"
@@ -94,6 +112,7 @@ if [[ "$workers" -gt 0 ]]; then
   for i in $(seq 1 $workers); do
     $provisioner --group worker \
                  --host-prefix ${host_prefix}${worker_label}${cluster_name} \
+							 	 -e wait_for_ip=false \
                  $ARGS
   done
 fi
